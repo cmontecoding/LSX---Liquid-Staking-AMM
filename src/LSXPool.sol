@@ -103,11 +103,15 @@ contract LSXPool is ERC20 {
     /// @param amount The amount to calculate the fee for
     /// @return fee
     function calculateTotalFee(uint256 amount) public returns (uint256) {
-        //_recalculateDynamicFee();
-        uint256 dynamicFee = Math.mulDiv(amount, dynamicLPFee, MAX_BASIS_POINTS);
+        uint256 dynamicFee = calculateDynamicFee(amount);
         if (dynamicFee == 0) revert FeeTooLow();
         return dynamicFee + baseFee;
-    }  
+    }
+
+    function calculateDynamicFee(uint256 amount) public returns (uint256) {
+        //_recalculateDynamicFeePercentage();
+        return Math.mulDiv(amount, dynamicLPFee, MAX_BASIS_POINTS);
+    }
 
     /// @notice Calculate the shares for a given amount of LP
     /// @dev this is Sshares in the whitepaper, Anative / Ttotal
@@ -121,11 +125,10 @@ contract LSXPool is ERC20 {
     /// @dev this is Ttotal in the whitepaper
     /// @return total
     function total() public returns (uint256) {
-        _recalculateDynamicFee();
-        uint256 total = (nativeTokenBalance *
-            (1 + dynamicLPFee) +
-            ((stakedTokenBalance + bondedTokenBalance) *
-                (1 - dynamicLPFee)));
+        uint256 total = (nativeTokenBalance +
+            calculateDynamicFee(nativeTokenBalance) +
+            (stakedTokenBalance + bondedTokenBalance) -
+            calculateDynamicFee(stakedTokenBalance + bondedTokenBalance));
         return total;
     }
 
@@ -145,7 +148,8 @@ contract LSXPool is ERC20 {
 
         uint256 fee = calculateTotalFee(amount);
         uint256 nativeTokenTransferAmount = amount - fee;
-        if (nativeTokenTransferAmount == 0) revert NativeTokenTransferAmountZero();    
+        if (nativeTokenTransferAmount == 0)
+            revert NativeTokenTransferAmountZero();
 
         // update state
         stakedTokenBalance += amount;
@@ -154,7 +158,6 @@ contract LSXPool is ERC20 {
         // do token transfers
         stakedToken.transferFrom(msg.sender, address(this), amount);
         nativeToken.transfer(msg.sender, nativeTokenTransferAmount);
-
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -184,18 +187,27 @@ contract LSXPool is ERC20 {
 
     //note: this may eventually be a view function if we remove dynamicLPFee from state and dont put in constructor
     //todo: make these fractions work
-    function _recalculateDynamicFee() internal {
+    function _recalculateDynamicFeePercentage() internal {
         uint256 fee;
         uint256 utilization = calculateUtilization();
         if (utilization < targetUtilization) {
             /// @dev this is slope 1
-            fee = utilization / targetUtilization * 100;
+            fee = (utilization / targetUtilization) * 100;
         } else {
             /// @dev this is slope 2
-            fee = (utilization - targetUtilization) / (1 - targetUtilization) * 100;
+            fee =
+                ((utilization - targetUtilization) / (1 - targetUtilization)) *
+                100;
         }
         /// @dev set state
         dynamicLPFee = fee;
     }
 
+    //todo add skim/sync to make sure balances are correct
+
+    function sync() public {
+        //wip
+        nativeTokenBalance = nativeToken.balanceOf(address(this));
+        stakedTokenBalance = stakedToken.balanceOf(address(this));
+    }
 }

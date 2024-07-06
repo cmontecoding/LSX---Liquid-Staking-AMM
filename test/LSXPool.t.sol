@@ -54,5 +54,22 @@ contract LSXPoolTest is Test {
         assertEq(pool.calculateTotalFee(amount), Math.mulDiv(amount, 100, 10000) + 100);
     }
 
+    function testTotal() public {
+        // setup
+        assertEq(pool.nativeTokenBalance(), 0);
+        assertEq(pool.stakedTokenBalance(), 0);
+        nativeToken.mint(address(pool), 1000);
+        stakedToken.mint(address(pool), 1000);
+        pool.sync();
+        assertEq(pool.nativeTokenBalance(), 1000);
+        assertEq(pool.stakedTokenBalance(), 1000);
+
+        // 1000 nativeTokenBalance
+        // + 10 dynamicFee for nativeTokenBalance (1%)
+        // + 1000 stakedTokenBalance + 0 bondedTokenBalance
+        // - 10 dynamicFee for (stakedTokenBalance + bondedTokenBalance) (1%)
+        assertEq(pool.total(), 2000);
+    }
+
 
 }
