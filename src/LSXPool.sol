@@ -71,7 +71,7 @@ contract LSXPool is ERC20 {
     }
 
     /*///////////////////////////////////////////////////////////////
-                                VIEWS
+                                HELPERS
     ///////////////////////////////////////////////////////////////*/
 
     /// @notice Calculate the utilization ratio of the pool
@@ -84,7 +84,8 @@ contract LSXPool is ERC20 {
     /// @notice Calculate the total fee (base + dynamic)
     /// @param amount The amount to calculate the fee for
     /// @return fee
-    function calculateTotalFee(uint256 amount) public view returns (uint256) {
+    function calculateTotalFee(uint256 amount) public returns (uint256) {
+        calculateDynamicFee();
         return amount * dynamicLPFee + baseFee;
     }
 
@@ -92,14 +93,15 @@ contract LSXPool is ERC20 {
     /// @dev this is Sshares in the whitepaper, Anative / Ttotal
     /// @param amount The amount to calculate the shares for
     /// @return shares
-    function calculateShares(uint256 amount) public view returns (uint256) {
+    function calculateShares(uint256 amount) public returns (uint256) {
         return amount / total();
     }
 
     /// @notice return the total value of the pool
     /// @dev this is Ttotal in the whitepaper
     /// @return total
-    function total() public view returns (uint256) {
+    function total() public returns (uint256) {
+        calculateDynamicFee();
         uint256 total = (nativeTokenBalance *
             (1 + dynamicLPFee) +
             ((stakedTokenBalance + bondedTokenBalance) *
@@ -144,4 +146,25 @@ contract LSXPool is ERC20 {
     function removeLiquidity(uint256 amount) public {
         //return lp tokens and get native tokens back (more in return)
     }
+
+    /*///////////////////////////////////////////////////////////////
+                                INTERNAL
+    ///////////////////////////////////////////////////////////////*/
+
+    //note: this may eventually be a view function if we remove dynamicLPFee from state and dont put in constructor
+    //todo: make these fractions work
+    function calculateDynamicFee() internal {
+        uint256 fee;
+        uint256 utilization = calculateUtilization();
+        if (utilization < targetUtilization) {
+            /// @dev this is slope 1
+            fee = utilization / targetUtilization * 100;
+        } else {
+            /// @dev this is slope 2
+            fee = (utilization - targetUtilization) / (1 - targetUtilization) * 100;
+        }
+        /// @dev set state
+        dynamicLPFee = fee;
+    }
+
 }
