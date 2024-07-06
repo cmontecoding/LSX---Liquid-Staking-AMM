@@ -9,6 +9,16 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @notice Pool for Liquid Staking AMM
 /// @author andrewcmonte (andrew@definative.xyz)
 contract LSXPool is ERC20 {
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice error when user tries to buy/sell/lp 0 tokens
+    error AmountZero();
+
+    /// @notice error when user tries to transfer 0 native tokens
+    error NativeTokenTransferAmountZero();
+
     /*///////////////////////////////////////////////////////////////
                         CONSTANTS/IMMUTABLES
     ///////////////////////////////////////////////////////////////*/
@@ -85,7 +95,7 @@ contract LSXPool is ERC20 {
     /// @param amount The amount to calculate the fee for
     /// @return fee
     function calculateTotalFee(uint256 amount) public returns (uint256) {
-        calculateDynamicFee();
+        _calculateDynamicFee();
         return amount * dynamicLPFee + baseFee;
     }
 
@@ -101,7 +111,7 @@ contract LSXPool is ERC20 {
     /// @dev this is Ttotal in the whitepaper
     /// @return total
     function total() public returns (uint256) {
-        calculateDynamicFee();
+        _calculateDynamicFee();
         uint256 total = (nativeTokenBalance *
             (1 + dynamicLPFee) +
             ((stakedTokenBalance + bondedTokenBalance) *
@@ -118,10 +128,23 @@ contract LSXPool is ERC20 {
         // give native tokens and get staked tokens back (LST)
     }
 
-    /// @notice Sell staked tokens for unstaked tokens
+    /// @notice Sell staked tokens for native tokens
     /// @notice there is a dynamic fee
     function sell(uint256 amount) public {
-        // give staked tokens (LST) and get native tokens back
+        if (amount == 0) revert AmountZero();
+
+        uint256 fee = calculateTotalFee(amount);
+        uint256 nativeTokenTransferAmount = amount - fee;
+        if (nativeTokenTransferAmount == 0) revert NativeTokenTransferAmountZero();    
+
+        // update state
+        stakedTokenBalance += amount;
+        nativeTokenBalance -= nativeTokenTransferAmount;
+
+        // do token transfers
+        stakedToken.transferFrom(msg.sender, address(this), amount);
+        nativeToken.transfer(msg.sender, nativeTokenTransferAmount);
+
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -131,8 +154,6 @@ contract LSXPool is ERC20 {
     /// @notice Provide single sided liquidity
     function provideLiquidity(uint256 amount) public {
         nativeToken.transferFrom(msg.sender, address(this), amount);
-        // note: if NT is ETH then this can prob be removed
-        // and we can look at .balance instead
         nativeTokenBalance += amount;
 
         // todo math
@@ -153,7 +174,7 @@ contract LSXPool is ERC20 {
 
     //note: this may eventually be a view function if we remove dynamicLPFee from state and dont put in constructor
     //todo: make these fractions work
-    function calculateDynamicFee() internal {
+    function _calculateDynamicFee() internal {
         uint256 fee;
         uint256 utilization = calculateUtilization();
         if (utilization < targetUtilization) {
