@@ -2,7 +2,6 @@
 pragma solidity 0.8.25;
 
 import {ILSXPool} from "./interfaces/ILSXPool.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title LSX Pool
@@ -24,6 +23,7 @@ contract LSXPool is ERC20 {
     ///////////////////////////////////////////////////////////////*/
 
     /// @notice The target ratio of staked to unstaked tokens in the pool
+    /// @dev this is in basis points
     uint256 public immutable targetUtilization;
 
     /// @notice The base fee that a liquidity
@@ -31,7 +31,7 @@ contract LSXPool is ERC20 {
     uint256 public immutable baseFee;
 
     /// @notice The staked token in the pool
-    IERC20 public immutable stakedToken;
+    ERC20 public immutable stakedToken;
 
     /// @notice The native token in the pool
     ERC20 public immutable nativeToken;
@@ -42,6 +42,7 @@ contract LSXPool is ERC20 {
 
     /// @notice The percentage that
     /// a liquidity provider will get on every trade
+    /// @dev this is in basis points
     uint256 public dynamicLPFee;
 
     /// @notice The amount of native tokens in the pool
@@ -76,7 +77,7 @@ contract LSXPool is ERC20 {
         targetUtilization = _targetUtilization;
         baseFee = _baseFee;
         dynamicLPFee = _dynamicLPFee;
-        stakedToken = IERC20(_stakedToken); // just going to make it an IERC20 for now but can change
+        stakedToken = ERC20(_stakedToken); // just going to make it an ERC20 for now but can change
         nativeToken = ERC20(_nativeToken); // just going to make it an ERC20 for now but can change
     }
 
