@@ -2,7 +2,7 @@
 pragma solidity 0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
-import {LSXPool, ERC20} from "../src/LSXPool.sol";
+import {LSXPool, ERC20, Math} from "../src/LSXPool.sol";
 import {MockToken} from "./MockToken.sol";
 
 contract LSXPoolTest is Test {
@@ -41,7 +41,17 @@ contract LSXPoolTest is Test {
     }
 
     function testCalculateTotalFee() public {
-        // assertEq(pool.calculateTotalFee(1000), 100);
+        assertEq(pool.calculateTotalFee(20000), 300);
+    }
+
+    function testCalculateTotalFeeTooLow() public {
+        vm.expectRevert(); //todo add error
+        pool.calculateTotalFee(99);
+    }
+
+    function testFuzzCalculateTotalFee(uint256 amount) public {
+        vm.assume(amount > 99);
+        assertEq(pool.calculateTotalFee(amount), Math.mulDiv(amount, 100, 10000) + 100);
     }
 
 

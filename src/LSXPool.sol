@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import {ILSXPool} from "./interfaces/ILSXPool.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title LSX Pool
 /// @notice Pool for Liquid Staking AMM
@@ -17,6 +18,9 @@ contract LSXPool is ERC20 {
 
     /// @notice error when user tries to transfer 0 native tokens
     error NativeTokenTransferAmountZero();
+
+    /// @notice error when the fee is too low
+    error FeeTooLow();
 
     /*///////////////////////////////////////////////////////////////
                         CONSTANTS/IMMUTABLES
@@ -35,6 +39,9 @@ contract LSXPool is ERC20 {
 
     /// @notice The native token in the pool
     ERC20 public immutable nativeToken;
+
+    /// @notice The maximum amount of basis points
+    uint256 public constant MAX_BASIS_POINTS = 10_000;
 
     /*///////////////////////////////////////////////////////////////
                                 STATE
@@ -96,9 +103,11 @@ contract LSXPool is ERC20 {
     /// @param amount The amount to calculate the fee for
     /// @return fee
     function calculateTotalFee(uint256 amount) public returns (uint256) {
-        _calculateDynamicFee();
-        return amount * dynamicLPFee + baseFee;
-    }
+        //_recalculateDynamicFee();
+        uint256 dynamicFee = Math.mulDiv(amount, dynamicLPFee, MAX_BASIS_POINTS);
+        if (dynamicFee == 0) revert FeeTooLow();
+        return dynamicFee + baseFee;
+    }  
 
     /// @notice Calculate the shares for a given amount of LP
     /// @dev this is Sshares in the whitepaper, Anative / Ttotal
@@ -112,7 +121,7 @@ contract LSXPool is ERC20 {
     /// @dev this is Ttotal in the whitepaper
     /// @return total
     function total() public returns (uint256) {
-        _calculateDynamicFee();
+        _recalculateDynamicFee();
         uint256 total = (nativeTokenBalance *
             (1 + dynamicLPFee) +
             ((stakedTokenBalance + bondedTokenBalance) *
@@ -175,7 +184,7 @@ contract LSXPool is ERC20 {
 
     //note: this may eventually be a view function if we remove dynamicLPFee from state and dont put in constructor
     //todo: make these fractions work
-    function _calculateDynamicFee() internal {
+    function _recalculateDynamicFee() internal {
         uint256 fee;
         uint256 utilization = calculateUtilization();
         if (utilization < targetUtilization) {
