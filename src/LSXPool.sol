@@ -9,7 +9,6 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @notice Pool for Liquid Staking AMM
 /// @author andrewcmonte (andrew@definative.xyz)
 contract LSXPool is ERC20 {
-
     /*///////////////////////////////////////////////////////////////
                         CONSTANTS/IMMUTABLES
     ///////////////////////////////////////////////////////////////*/
@@ -17,7 +16,7 @@ contract LSXPool is ERC20 {
     /// @notice The target ratio of staked to unstaked tokens in the pool
     uint256 public immutable targetUtilization;
 
-    /// @notice The base fee that a liquidity 
+    /// @notice The base fee that a liquidity
     /// provider must get on every trade
     uint256 public immutable baseFee;
 
@@ -36,7 +35,16 @@ contract LSXPool is ERC20 {
     uint256 public dynamicLPFee;
 
     /// @notice The amount of native tokens in the pool
-    uint256 public nativeTokenBalance; 
+    /// @dev this is T in the whitepaper
+    uint256 public nativeTokenBalance;
+
+    /// @notice The amount of staked tokens in the pool
+    /// @dev this is Ts in the whitepaper
+    uint256 public stakedTokenBalance;
+
+    /// @notice The amount of bonded tokens in the pool
+    /// @dev this is Tu in the whitepaper
+    uint256 public bondedTokenBalance;
 
     /*///////////////////////////////////////////////////////////////
                                 CONSTRUCTOR
@@ -51,10 +59,10 @@ contract LSXPool is ERC20 {
         uint256 _baseFee,
         uint256 _dynamicLPFee,
         address _stakedToken,
-        address _nativeToken, 
+        address _nativeToken,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol){
+    ) ERC20(_name, _symbol) {
         targetUtilization = _targetUtilization;
         baseFee = _baseFee;
         dynamicLPFee = _dynamicLPFee;
@@ -70,7 +78,7 @@ contract LSXPool is ERC20 {
     /// @dev this is U in the whitepaper, (Ts + Tu) / T
     /// @return utilization
     function calculateUtilization() public view returns (uint256) {
-        // math
+        return (stakedTokenBalance + bondedTokenBalance) / nativeTokenBalance;
     }
 
     /// @notice Calculate the total fee (base + dynamic)
@@ -85,14 +93,18 @@ contract LSXPool is ERC20 {
     /// @param amount The amount to calculate the shares for
     /// @return shares
     function calculateShares(uint256 amount) public view returns (uint256) {
-        // math
+        return amount / total();
     }
 
     /// @notice return the total value of the pool
     /// @dev this is Ttotal in the whitepaper
     /// @return total
     function total() public view returns (uint256) {
-        // math
+        uint256 total = (nativeTokenBalance *
+            (1 + dynamicLPFee) +
+            ((stakedTokenBalance + bondedTokenBalance) *
+                (1 - dynamicLPFee)));
+        return total;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -101,17 +113,13 @@ contract LSXPool is ERC20 {
 
     /// @notice Buy staked tokens with native tokens
     function buy(uint256 amount) public {
-        
         // give native tokens and get staked tokens back (LST)
-
     }
 
     /// @notice Sell staked tokens for unstaked tokens
     /// @notice there is a dynamic fee
     function sell(uint256 amount) public {
-        
         // give staked tokens (LST) and get native tokens back
-
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -122,20 +130,18 @@ contract LSXPool is ERC20 {
     function provideLiquidity(uint256 amount) public {
         nativeToken.transferFrom(msg.sender, address(this), amount);
         // note: if NT is ETH then this can prob be removed
-        // and we can look at .balance instead 
-        nativeTokenBalance += amount; 
+        // and we can look at .balance instead
+        nativeTokenBalance += amount;
 
         // todo math
 
         /// @dev mint the LP tokens
         uint256 shares = calculateShares(amount);
-        _mint(msg.sender, shares); 
+        _mint(msg.sender, shares);
     }
 
     /// @notice Remove liquidity
     function removeLiquidity(uint256 amount) public {
-        
         //return lp tokens and get native tokens back (more in return)
-
     }
 }
