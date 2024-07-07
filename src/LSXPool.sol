@@ -96,7 +96,13 @@ contract LSXPool is ERC20 {
     /// @dev this is U in the whitepaper, (Ts + Tu) / T
     /// @return utilization
     function calculateUtilization() public view returns (uint256) {
-        return (stakedTokenBalance + bondedTokenBalance) / nativeTokenBalance;
+        /// @dev return the ratio in basis points
+        return
+            Math.mulDiv(
+                stakedTokenBalance + bondedTokenBalance,
+                MAX_BASIS_POINTS,
+                nativeTokenBalance
+            );
     }
 
     /// @notice Calculate the total fee (base + dynamic)
@@ -131,7 +137,6 @@ contract LSXPool is ERC20 {
     /// @notice Buy staked tokens with native tokens
     function buy(uint256 amount) public {
         // give native tokens and get staked tokens back (LST)
-
         // if we run out of staked tokens then mint more
     }
 
@@ -180,8 +185,12 @@ contract LSXPool is ERC20 {
         if (sharesToBurn == 0) revert AmountZero();
 
         /// @dev (shares to burn * balance of pool before withdraw) / total shares before burn
-        uint256 amountToWithdraw = Math.mulDiv(sharesToBurn, total(), totalSupply());
-        
+        uint256 amountToWithdraw = Math.mulDiv(
+            sharesToBurn,
+            total(),
+            totalSupply()
+        );
+
         //todo fix underflow case: unequal math when removing liquidity
         if (amountToWithdraw > nativeTokenBalance) {
             amountToWithdraw = nativeTokenBalance;
@@ -197,21 +206,26 @@ contract LSXPool is ERC20 {
     ///////////////////////////////////////////////////////////////*/
 
     //note: this may eventually be a view function if we remove dynamicLPFee from state and dont put in constructor
-    //todo: make these fractions work
     function _recalculateDynamicFeePercentage() internal {
-        uint256 fee;
+        //todo test this function and fix math. not sure if Ut is expected to be < 1 or > 1
+        uint256 dynamicFee;
         uint256 utilization = calculateUtilization();
+        uint256 slope1 = Math.mulDiv(
+            utilization,
+            MAX_BASIS_POINTS,
+            targetUtilization
+        );
         if (utilization < targetUtilization) {
             /// @dev this is slope 1
-            fee = (utilization / targetUtilization) * 100;
+            dynamicFee = slope1;
         } else {
-            /// @dev this is slope 2
-            fee =
-                ((utilization - targetUtilization) / (1 - targetUtilization)) *
-                100;
+            /// @dev this is slope 1 + slope 2
+            uint256 slope2 = ((utilization - targetUtilization) *
+                MAX_BASIS_POINTS) / (MAX_BASIS_POINTS - targetUtilization);
+            dynamicFee = slope1 + slope2;
         }
         /// @dev set state
-        dynamicLPFee = fee;
+        dynamicLPFee = dynamicFee;
     }
 
     //todo add skim/sync to make sure balances are correct
