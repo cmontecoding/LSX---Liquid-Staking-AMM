@@ -113,14 +113,6 @@ contract LSXPool is ERC20 {
         return Math.mulDiv(amount, dynamicLPFee, MAX_BASIS_POINTS);
     }
 
-    /// @notice Calculate the shares for a given amount of LP
-    /// @dev this is Sshares in the whitepaper, Anative / Ttotal
-    /// @param amount The amount to calculate the shares for
-    /// @return shares
-    function calculateShares(uint256 amount) public returns (uint256) {
-        return amount / total();
-    }
-
     /// @notice return the total value of the pool
     /// @dev this is Ttotal in the whitepaper
     /// @return total
@@ -139,6 +131,8 @@ contract LSXPool is ERC20 {
     /// @notice Buy staked tokens with native tokens
     function buy(uint256 amount) public {
         // give native tokens and get staked tokens back (LST)
+
+        // if we run out of staked tokens then mint more
     }
 
     /// @notice Sell staked tokens for native tokens
@@ -165,20 +159,37 @@ contract LSXPool is ERC20 {
     ///////////////////////////////////////////////////////////////*/
 
     /// @notice Provide single sided liquidity
-    function provideLiquidity(uint256 amount) public {
-        nativeToken.transferFrom(msg.sender, address(this), amount);
-        nativeTokenBalance += amount;
+    function provideLiquidity(uint256 amountToDeposit) public {
+        if (amountToDeposit == 0) revert AmountZero();
 
-        // todo math
+        uint256 sharesToMint;
+        if (totalSupply() == 0) {
+            sharesToMint = amountToDeposit;
+        } else {
+            /// @dev (amount to deposit * total shares before mint) / balance of pool before deposit
+            sharesToMint = Math.mulDiv(amountToDeposit, totalSupply(), total());
+        }
 
-        /// @dev mint the LP tokens
-        uint256 shares = calculateShares(amount);
-        _mint(msg.sender, shares);
+        nativeTokenBalance += amountToDeposit;
+        _mint(msg.sender, sharesToMint);
+        nativeToken.transferFrom(msg.sender, address(this), amountToDeposit);
     }
 
     /// @notice Remove liquidity
-    function removeLiquidity(uint256 amount) public {
-        //return lp tokens and get native tokens back (more in return)
+    function removeLiquidity(uint256 sharesToBurn) public {
+        if (sharesToBurn == 0) revert AmountZero();
+
+        /// @dev (shares to burn * balance of pool before withdraw) / total shares before burn
+        uint256 amountToWithdraw = Math.mulDiv(sharesToBurn, total(), totalSupply());
+        
+        //todo fix underflow case: unequal math when removing liquidity
+        if (amountToWithdraw > nativeTokenBalance) {
+            amountToWithdraw = nativeTokenBalance;
+        }
+
+        nativeTokenBalance -= amountToWithdraw;
+        _burn(msg.sender, sharesToBurn);
+        nativeToken.transfer(msg.sender, amountToWithdraw);
     }
 
     /*///////////////////////////////////////////////////////////////
