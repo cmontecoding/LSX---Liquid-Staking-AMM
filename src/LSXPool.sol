@@ -136,8 +136,26 @@ contract LSXPool is ERC20 {
 
     /// @notice Buy staked tokens with native tokens
     function buy(uint256 amount) public {
-        // give native tokens and get staked tokens back (LST)
-        // if we run out of staked tokens then mint more
+        if (amount == 0) revert AmountZero();
+
+        /// @dev this is the formula for buying
+        /// Astaked(1 + (F-2Fb))
+        uint256 stakedTokenTransferAmount = amount +
+            calculateDynamicFee(amount) -
+            baseFee;
+
+        /// @dev if we run out of staked tokens then mint more
+        if (stakedTokenBalance < stakedTokenTransferAmount) {
+            _mintLST(stakedTokenTransferAmount - stakedTokenBalance);
+        }
+
+        // update state
+        stakedTokenBalance -= stakedTokenTransferAmount;
+        nativeTokenBalance += amount;
+
+        // do token transfers
+        stakedToken.transfer(msg.sender, stakedTokenTransferAmount);
+        nativeToken.transferFrom(msg.sender, address(this), amount);
     }
 
     /// @notice Sell staked tokens for native tokens
@@ -226,6 +244,14 @@ contract LSXPool is ERC20 {
         }
         /// @dev set state
         dynamicLPFee = dynamicFee;
+    }
+
+    function _mintLST(uint256 amount) internal {
+        // mint more LST at a rate of 1:1 at the minter contract
+
+        // integrate minter contract
+
+        stakedTokenBalance += amount;
     }
 
     //todo add skim/sync to make sure balances are correct
