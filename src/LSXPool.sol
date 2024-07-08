@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import {ILSXPool} from "./interfaces/ILSXPool.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {MockToken} from "../test/MockToken.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title LSX Pool
@@ -35,7 +36,7 @@ contract LSXPool is ERC20 {
     uint256 public immutable baseFee;
 
     /// @notice The staked token in the pool
-    ERC20 public immutable stakedToken;
+    MockToken public immutable stakedToken;
 
     /// @notice The native token in the pool
     ERC20 public immutable nativeToken;
@@ -84,7 +85,7 @@ contract LSXPool is ERC20 {
         targetUtilization = _targetUtilization;
         baseFee = _baseFee;
         dynamicLPFee = _dynamicLPFee;
-        stakedToken = ERC20(_stakedToken); // just going to make it an ERC20 for now but can change
+        stakedToken = MockToken(_stakedToken); // just going to make it a MockERC20 for now but can change
         nativeToken = ERC20(_nativeToken); // just going to make it an ERC20 for now but can change
     }
 
@@ -246,10 +247,18 @@ contract LSXPool is ERC20 {
         dynamicLPFee = dynamicFee;
     }
 
+    /// @dev mint more LST at a rate of 1:1 at the minter contract
     function _mintLST(uint256 amount) internal {
-        // mint more LST at a rate of 1:1 at the minter contract
+        uint256 stakedTokenBalanceBefore = stakedToken.balanceOf(address(this));
 
-        // integrate minter contract
+        // todo integrate minter contract. this is temporary for testing
+        stakedToken.mint(address(this), amount);
+
+        uint256 stakedTokenBalanceAfter = stakedToken.balanceOf(address(this));
+        require(
+            stakedTokenBalanceAfter > stakedTokenBalanceBefore,
+            "LSXPool: minting failed"
+        );
 
         stakedTokenBalance += amount;
     }

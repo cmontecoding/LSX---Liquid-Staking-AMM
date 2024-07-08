@@ -4,35 +4,14 @@ pragma solidity 0.8.25;
 import {Test, console} from "forge-std/Test.sol";
 import {LSXPool, ERC20, Math} from "../src/LSXPool.sol";
 import {MockToken} from "./MockToken.sol";
+import {PoolTestHelpers} from "./utils/PoolTestHelpers.t.sol";
 
-contract LSXPoolTest is Test {
-    LSXPool public pool;
-    address public user1;
-    address public user2;
-    // these are just mocks
-    MockToken public nativeToken;
-    MockToken public stakedToken;
-
-    function setUp() public {
-        user1 = address(1);
-        user2 = address(2);
-        nativeToken = new MockToken("native", "NAT");
-        stakedToken = new MockToken("staked", "STK");
-
-        pool = new LSXPool({
-            _targetUtilization: 9000,
-            _baseFee: 100,
-            _dynamicLPFee: 100,
-            _stakedToken: address(stakedToken),
-            _nativeToken: address(nativeToken),
-            _name: "LSXPool",
-            _symbol: "LSX"
-        });
-
-
+contract LSXPoolTest is PoolTestHelpers {
+    function setUp() public override {
+        super.setUp();
     }
 
-    function testConstructor() public {
+    function testConstructor() public  {
         assertEq(pool.targetUtilization(), 9000);
         assertEq(pool.baseFee(), 100);
         assertEq(pool.dynamicLPFee(), 100);
@@ -74,19 +53,10 @@ contract LSXPoolTest is Test {
     }
 
     function testProvideLiquidity() public {
-        // setup
-        vm.startPrank(user1);
-        nativeToken.mint(user1, 1000);
-        nativeToken.approve(address(pool), 1000);
-
-        // check balances
-        assertEq(nativeToken.balanceOf(address(pool)), 0);
-        assertEq(pool.nativeTokenBalance(), 0);
-        assertEq(pool.totalSupply(), 0);
-        assertEq(pool.balanceOf(user1), 0);
+        assertBalancesAreZero();
 
         // provide liquidity
-        pool.provideLiquidity(1000);
+        mintToUserAndLP(user1, 1000);
 
         // check balances
         assertEq(nativeToken.balanceOf(address(pool)), 1000);
@@ -96,22 +66,10 @@ contract LSXPoolTest is Test {
     }
 
     function testProvideLiquidityMultipleActors() public {
-        // setup
-        nativeToken.mint(user1, 1000);
-        nativeToken.mint(user2, 1000);
-
-        // check balances
-        assertEq(nativeToken.balanceOf(address(pool)), 0);
-        assertEq(pool.nativeTokenBalance(), 0);
-        assertEq(pool.totalSupply(), 0);
-        assertEq(pool.balanceOf(user1), 0);
-        assertEq(pool.balanceOf(user2), 0);
+        assertBalancesAreZero();
 
         // provide liquidity
-        vm.startPrank(user1);
-        nativeToken.approve(address(pool), 1000);
-        pool.provideLiquidity(1000);
-        vm.stopPrank();
+        mintToUserAndLP(user1, 1000);
 
         // check balances
         assertEq(nativeToken.balanceOf(address(pool)), 1000);
@@ -119,10 +77,8 @@ contract LSXPoolTest is Test {
         assertEq(pool.totalSupply(), 1000);
         assertEq(pool.balanceOf(user1), 1000);
 
-        vm.startPrank(user2);
-        nativeToken.approve(address(pool), 1000);
-        pool.provideLiquidity(1000);
-        vm.stopPrank();
+        // provide liquidity
+        mintToUserAndLP(user2, 1000);
 
         // check balances
         assertEq(nativeToken.balanceOf(address(pool)), 2000);
@@ -134,11 +90,7 @@ contract LSXPoolTest is Test {
         assertEq(pool.balanceOf(user2), 990);
 
         // provide liquidity
-        nativeToken.mint(user1, 200);
-        vm.startPrank(user1);
-        nativeToken.approve(address(pool), 200);
-        pool.provideLiquidity(200);
-        vm.stopPrank();
+        mintToUserAndLP(user1, 200);
 
         // check balances
         assertEq(nativeToken.balanceOf(address(pool)), 2200);
@@ -154,36 +106,20 @@ contract LSXPoolTest is Test {
     }
 
     function testRemoveLiquidity() public {
-        // setup
-        nativeToken.mint(user1, 1000);
-        nativeToken.mint(user2, 1000);
-        // check balances
-        assertEq(nativeToken.balanceOf(address(pool)), 0);
-        assertEq(pool.nativeTokenBalance(), 0);
-        assertEq(pool.totalSupply(), 0);
-        assertEq(pool.balanceOf(user1), 0);
-        assertEq(pool.balanceOf(user2), 0);
+        assertBalancesAreZero();
+
         // provide liquidity
-        vm.startPrank(user1);
-        nativeToken.approve(address(pool), 1000);
-        pool.provideLiquidity(1000);
-        vm.stopPrank();
-        vm.startPrank(user2);
-        nativeToken.approve(address(pool), 1000);
-        pool.provideLiquidity(1000);
-        vm.stopPrank();
-        nativeToken.mint(user1, 200);
-        vm.startPrank(user1);
-        nativeToken.approve(address(pool), 200);
-        pool.provideLiquidity(200);
-        vm.stopPrank();
+        mintToUserAndLP(user1, 1000);
+        mintToUserAndLP(user2, 1000);
+        mintToUserAndLP(user1, 200);
+       
         // check balances
         assertEq(nativeToken.balanceOf(address(pool)), 2200);
         assertEq(pool.nativeTokenBalance(), 2200);
         assertEq(pool.totalSupply(), 2187);
         assertEq(pool.balanceOf(user1), 1197);
         assertEq(pool.balanceOf(user2), 990);
-        // setup end
+    
 
         // remove liquidity
         vm.prank(user1);
@@ -213,6 +149,17 @@ contract LSXPoolTest is Test {
         assertEq(pool.balanceOf(user2), 0);
         assertEq(nativeToken.balanceOf(user2), 984);
 
+    }
+
+    function testBuy() public {
+        // setup
+        mintToUserAndLP(user1, 1000);
+
+        nativeToken.mint(user2, 1000);
+        vm.startPrank(user2);
+        nativeToken.approve(address(pool), 1000);
+        pool.buy(1000);
+        vm.stopPrank();
     }
 
 
