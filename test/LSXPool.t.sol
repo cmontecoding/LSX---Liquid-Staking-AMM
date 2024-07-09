@@ -11,7 +11,7 @@ contract LSXPoolTest is PoolTestHelpers {
         super.setUp();
     }
 
-    function testConstructor() public  {
+    function testConstructor() public {
         assertEq(pool.targetUtilization(), 9000);
         assertEq(pool.baseFee(), 100);
         assertEq(pool.dynamicLPFee(), 100);
@@ -34,7 +34,65 @@ contract LSXPoolTest is PoolTestHelpers {
 
     function testFuzzCalculateTotalFee(uint256 amount) public {
         vm.assume(amount > 99);
-        assertEq(pool.calculateTotalFee(amount), Math.mulDiv(amount, 100, 10000) + 100);
+        assertEq(
+            pool.calculateTotalFee(amount),
+            Math.mulDiv(amount, 100, 10000) + 100
+        );
+    }
+
+    // calculate utilization
+
+    function testCalculateUtilization() public {
+        // sanity check multiple factors
+        assertEq(pool.calculateUtilization(1000, 1000, 10000), 2000);
+        assertEq(pool.calculateUtilization(100, 100, 1000), 2000);
+        assertEq(pool.calculateUtilization(10, 10, 100), 2000);
+        assertEq(pool.calculateUtilization(1, 1, 10), 2000);
+
+        // check greater than one
+        assertEq(pool.calculateUtilization(1000, 1000, 1000), 20000);
+        assertEq(pool.calculateUtilization(100, 100, 100), 20000);
+        assertEq(pool.calculateUtilization(10, 10, 10), 20000);
+        assertEq(pool.calculateUtilization(1, 1, 1), 20000);
+    }
+
+    function testFuzzCalculateUtilization(
+        uint256 stakedTokenAmount,
+        uint256 bondedTokenAmount,
+        uint256 nativeTokenAmount
+    ) public {
+        // for underflow and overflow
+        vm.assume(stakedTokenAmount < 2**128);
+        vm.assume(bondedTokenAmount < 2**128);
+        vm.assume(stakedTokenAmount > 0);
+        vm.assume(bondedTokenAmount > 0);
+        vm.assume(nativeTokenAmount > 0);
+
+        assertEq(
+            pool.calculateUtilization(
+                stakedTokenAmount,
+                bondedTokenAmount,
+                nativeTokenAmount
+            ),
+            Math.mulDiv(
+                stakedTokenAmount + bondedTokenAmount,
+                10000,
+                nativeTokenAmount
+            )
+        );
+    }
+
+    function testCalculateUtilizationAmountZero() public {
+        vm.expectRevert(); //todo add error
+        pool.calculateUtilization(0, 0, 0);
+        vm.expectRevert(); 
+        pool.calculateUtilization(1, 1, 0);
+        vm.expectRevert(); 
+        pool.calculateUtilization(0, 1, 1);
+        vm.expectRevert(); 
+        pool.calculateUtilization(0, 1, 0);
+        vm.expectRevert(); 
+        pool.calculateUtilization(1, 0, 1);
     }
 
     // total
@@ -120,14 +178,13 @@ contract LSXPoolTest is PoolTestHelpers {
         mintToUserAndLP(user1, 1000);
         mintToUserAndLP(user2, 1000);
         mintToUserAndLP(user1, 200);
-       
+
         // check balances
         assertEq(nativeToken.balanceOf(address(pool)), 2200);
         assertEq(pool.nativeTokenBalance(), 2200);
         assertEq(pool.totalSupply(), 2187);
         assertEq(pool.balanceOf(user1), 1197);
         assertEq(pool.balanceOf(user2), 990);
-    
 
         // remove liquidity
         vm.prank(user1);
@@ -156,7 +213,6 @@ contract LSXPoolTest is PoolTestHelpers {
         assertEq(pool.balanceOf(user1), 0);
         assertEq(pool.balanceOf(user2), 0);
         assertEq(nativeToken.balanceOf(user2), 984);
-
     }
 
     // buy
@@ -220,6 +276,4 @@ contract LSXPoolTest is PoolTestHelpers {
     function testRecalculateDynamicFee() public {
         //test dynamic fee
     }
-
-
 }
