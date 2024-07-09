@@ -154,12 +154,53 @@ contract LSXPoolTest is PoolTestHelpers {
     function testBuy() public {
         // setup
         mintToUserAndLP(user1, 1000);
+        mintToUserAndBuy(user2, 1000);
 
-        nativeToken.mint(user2, 1000);
+        // check balances
+        assertEq(nativeToken.balanceOf(address(pool)), 2000);
+        assertEq(pool.nativeTokenBalance(), 2000);
+        assertEq(pool.totalSupply(), 1000);
+        assertEq(pool.balanceOf(user1), 1000);
+        assertEq(pool.balanceOf(user2), 0);
+        assertEq(nativeToken.balanceOf(user2), 0);
+        // 1000 + 10 (1% dynamic fee) - 100 (base fee)
+        assertEq(stakedToken.balanceOf(user2), 910);
+        assertEq(stakedToken.balanceOf(address(pool)), 0);
+        assertEq(pool.stakedTokenBalance(), 0);
+    }
+
+    function testSell() public {
+        // setup
+        mintToUserAndLP(user1, 1000);
+        mintToUserAndBuy(user2, 1000);
+
+        // check balances
+        assertEq(nativeToken.balanceOf(address(pool)), 2000);
+        assertEq(pool.nativeTokenBalance(), 2000);
+        assertEq(pool.totalSupply(), 1000);
+        assertEq(pool.balanceOf(user1), 1000);
+        assertEq(pool.balanceOf(user2), 0);
+        assertEq(nativeToken.balanceOf(user2), 0);
+        assertEq(stakedToken.balanceOf(user2), 910);
+        assertEq(stakedToken.balanceOf(address(pool)), 0);
+        assertEq(pool.stakedTokenBalance(), 0);
+
+        // sell
         vm.startPrank(user2);
-        nativeToken.approve(address(pool), 1000);
-        pool.buy(1000);
+        stakedToken.approve(address(pool), 910);
+        pool.sell(910);
         vm.stopPrank();
+
+        // check balances
+        assertEq(nativeToken.balanceOf(address(pool)), 1199);
+        assertEq(pool.nativeTokenBalance(), 1199);
+        assertEq(pool.totalSupply(), 1000);
+        assertEq(pool.balanceOf(user1), 1000);
+        assertEq(pool.balanceOf(user2), 0);
+        assertEq(nativeToken.balanceOf(user2), 801);
+        assertEq(stakedToken.balanceOf(user2), 0);
+        assertEq(stakedToken.balanceOf(address(pool)), 910);
+        assertEq(pool.stakedTokenBalance(), 910);
     }
 
 

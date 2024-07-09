@@ -17,6 +17,22 @@ contract PoolTestHelpers is PoolTestSetup {
         vm.stopPrank();
     }
 
+    function mintToUserAndBuy(address user, uint256 amount) public {
+        nativeToken.mint(user, amount);
+        vm.startPrank(user);
+        nativeToken.approve(address(pool), amount);
+        pool.buy(amount);
+        vm.stopPrank();
+    }
+
+    function mintToUserAndSell(address user, uint256 amount) public {
+        stakedToken.mint(user, amount);
+        vm.startPrank(user);
+        nativeToken.approve(address(pool), amount);
+        pool.sell(amount);
+        vm.stopPrank();
+    }
+
     function assertBalancesAreZero() public {
         assertEq(nativeToken.balanceOf(address(pool)), 0);
         assertEq(stakedToken.balanceOf(address(pool)), 0);
