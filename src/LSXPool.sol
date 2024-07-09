@@ -105,8 +105,8 @@ contract LSXPool is ERC20 {
         uint256 _nativeTokenBalance
     ) public view returns (uint256) {
         if (
-            _stakedTokenBalance == 0 ||
-            _bondedTokenBalance == 0 ||
+            (_stakedTokenBalance +
+            _bondedTokenBalance == 0) ||
             _nativeTokenBalance == 0
         ) revert AmountZero();
         /// @dev return the ratio in basis points
@@ -238,7 +238,7 @@ contract LSXPool is ERC20 {
 
     //note: this may eventually be a view function if we remove dynamicLPFee from state and dont put in constructor
     function _recalculateDynamicFeePercentage() internal {
-        //todo test this function and fix math. not sure if Ut is expected to be < 1 or > 1
+        //todo test this function and fix math.
         uint256 dynamicFee;
         uint256 utilization = calculateUtilization(
             stakedTokenBalance,
