@@ -3,7 +3,7 @@ pragma solidity 0.8.25;
 
 import {ILSXPool} from "./interfaces/ILSXPool.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {MockToken} from "../test/MockToken.sol";
+import {MockToken} from "../test/utils/MockToken.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title LSX Pool

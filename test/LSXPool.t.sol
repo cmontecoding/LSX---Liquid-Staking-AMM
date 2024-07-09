@@ -3,7 +3,7 @@ pragma solidity 0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
 import {LSXPool, ERC20, Math} from "../src/LSXPool.sol";
-import {MockToken} from "./MockToken.sol";
+import {MockToken} from "./utils/MockToken.sol";
 import {PoolTestHelpers} from "./utils/PoolTestHelpers.t.sol";
 
 contract LSXPoolTest is PoolTestHelpers {
@@ -21,6 +21,8 @@ contract LSXPoolTest is PoolTestHelpers {
         assertEq(pool.symbol(), "LSX");
     }
 
+    // total fee
+
     function testCalculateTotalFee() public {
         assertEq(pool.calculateTotalFee(20000), 300);
     }
@@ -34,6 +36,8 @@ contract LSXPoolTest is PoolTestHelpers {
         vm.assume(amount > 99);
         assertEq(pool.calculateTotalFee(amount), Math.mulDiv(amount, 100, 10000) + 100);
     }
+
+    // total
 
     function testTotal() public {
         // setup
@@ -51,6 +55,8 @@ contract LSXPoolTest is PoolTestHelpers {
         // - 10 dynamicFee for (stakedTokenBalance + bondedTokenBalance) (1%)
         assertEq(pool.total(), 2000);
     }
+
+    // provide liquidity
 
     function testProvideLiquidity() public {
         assertBalancesAreZero();
@@ -105,6 +111,8 @@ contract LSXPoolTest is PoolTestHelpers {
         assertEq(nativeToken.balanceOf(user2), 0);
     }
 
+    // remove liquidity
+
     function testRemoveLiquidity() public {
         assertBalancesAreZero();
 
@@ -151,6 +159,8 @@ contract LSXPoolTest is PoolTestHelpers {
 
     }
 
+    // buy
+
     function testBuy() public {
         // setup
         mintToUserAndLP(user1, 1000);
@@ -168,6 +178,8 @@ contract LSXPoolTest is PoolTestHelpers {
         assertEq(stakedToken.balanceOf(address(pool)), 0);
         assertEq(pool.stakedTokenBalance(), 0);
     }
+
+    // sell
 
     function testSell() public {
         // setup
@@ -201,6 +213,12 @@ contract LSXPoolTest is PoolTestHelpers {
         assertEq(stakedToken.balanceOf(user2), 0);
         assertEq(stakedToken.balanceOf(address(pool)), 910);
         assertEq(pool.stakedTokenBalance(), 910);
+    }
+
+    // dynamic fee
+
+    function testRecalculateDynamicFee() public {
+        //test dynamic fee
     }
 
 
