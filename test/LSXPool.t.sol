@@ -54,6 +54,10 @@ contract LSXPoolTest is PoolTestHelpers {
         assertEq(pool.calculateUtilization(100, 100, 100), 20000);
         assertEq(pool.calculateUtilization(10, 10, 10), 20000);
         assertEq(pool.calculateUtilization(1, 1, 1), 20000);
+
+        // check if stakedBalance or bondedBalance is zero
+        assertEq(pool.calculateUtilization(0, 1, 1), 10000);
+        assertEq(pool.calculateUtilization(1, 0, 1), 10000);
     }
 
     function testFuzzCalculateUtilization(
@@ -88,11 +92,7 @@ contract LSXPoolTest is PoolTestHelpers {
         vm.expectRevert(); 
         pool.calculateUtilization(1, 1, 0);
         vm.expectRevert(); 
-        pool.calculateUtilization(0, 1, 1);
-        vm.expectRevert(); 
         pool.calculateUtilization(0, 1, 0);
-        vm.expectRevert(); 
-        pool.calculateUtilization(1, 0, 1);
     }
 
     // total
@@ -273,7 +273,29 @@ contract LSXPoolTest is PoolTestHelpers {
 
     // dynamic fee
 
-    function testRecalculateDynamicFee() public {
-        //test dynamic fee
+    function testRecalculateDynamicFeeSlope1() public {
+        // slope 1 (utilization < target)
+        // 50% < 90%
+        stakedToken.mint(address(poolInternals), 1000);
+        nativeToken.mint(address(poolInternals), 2000);
+        poolInternals.sync();
+
+        poolInternals._recalculateDynamicFeePercentageInternal();
+
+        // 50%/90% = 55% (5555 BP)
+        assertEq(poolInternals.dynamicLPFee(), 5555);
+    }
+
+    function testRecalculateDynamicFeeSlope2() public {
+        // slope 2 (utilization > target)
+        // 100% > 90%
+        stakedToken.mint(address(poolInternals), 1000);
+        nativeToken.mint(address(poolInternals), 1000);
+        poolInternals.sync();
+
+        poolInternals._recalculateDynamicFeePercentageInternal();
+
+        // 100%/90% = 111% (11111 BP)
+        assertEq(poolInternals.dynamicLPFee(), 11111 + 10000);
     }
 }
