@@ -171,48 +171,62 @@ contract LSXPoolTest is PoolTestHelpers {
 
     // remove liquidity
 
-    function testRemoveLiquidity() public {
+    function testRemoveLiquidityMultipleActors() public {
         assertBalancesAreZero();
 
+        // this will mint 100_000 shares
+        /// @dev the pool needs initial liquidty to avoid frontrunning
+        mintToUserAndLP(address(this), 100_000);
+        assertEq(pool.totalSupply(), 100_000);
+        assertEq(pool.total(), 101_000);
+
         // provide liquidity
+        /// @dev sharesToMint = (1000 * 100_000) / 101_000 = 990
         mintToUserAndLP(user1, 1000);
+        assertEq(pool.totalSupply(), 100_990);
+        assertEq(pool.total(), 102_010);
+        /// @dev sharesToMint = (1000 * 100_990) / 102_010 = 990
         mintToUserAndLP(user2, 1000);
+        assertEq(pool.totalSupply(), 101_980);
+        assertEq(pool.total(), 103_020);
+        /// @dev sharesToMint = (200 * 101_980) / 103_020 = 197
         mintToUserAndLP(user1, 200);
+        assertEq(pool.totalSupply(), 102_177);
+        assertEq(pool.total(), 103_222);
 
         // check balances
-        assertEq(nativeToken.balanceOf(address(pool)), 2200);
-        assertEq(pool.nativeTokenBalance(), 2200);
-        assertEq(pool.totalSupply(), 2187);
-        assertEq(pool.balanceOf(user1), 1197);
+        assertEq(nativeToken.balanceOf(address(pool)), 102200);
+        assertEq(pool.nativeTokenBalance(), 102200);
+        assertEq(pool.balanceOf(user1), 1187);
         assertEq(pool.balanceOf(user2), 990);
 
         // remove liquidity
         vm.prank(user1);
-        pool.removeLiquidity(1197);
+        pool.removeLiquidity(1187);
 
         // check balances
-        // (1197 * 2222) / 2187 = 1216
-        // 2200 - 1216 = 984
-        assertEq(nativeToken.balanceOf(address(pool)), 984);
-        assertEq(pool.nativeTokenBalance(), 984);
-        assertEq(pool.totalSupply(), 990);
+        // (1187 * 103_222) / 102_177 = 1199
+        // 102_200 - 1199 = 101_001
+        assertEq(nativeToken.balanceOf(address(pool)), 101_001);
+        assertEq(pool.nativeTokenBalance(), 101_001);
+        assertEq(pool.totalSupply(), 100_990);
         assertEq(pool.balanceOf(user1), 0);
         assertEq(pool.balanceOf(user2), 990);
-        assertEq(nativeToken.balanceOf(user1), 1216);
+        assertEq(nativeToken.balanceOf(user1), 1199);
+        assertEq(pool.total(), 102_011);
 
         // remove liquidity
         vm.prank(user2);
         pool.removeLiquidity(990);
 
         // check balances
-        // (990 * 993) / 990 = 993
-        // 984 - 993 = underflow. code is overriden to take all nativeTokenBalance
-        assertEq(nativeToken.balanceOf(address(pool)), 0);
-        assertEq(pool.nativeTokenBalance(), 0);
-        assertEq(pool.totalSupply(), 0);
+        // (990 * 102_011) / 100_990 = 1000
+        assertEq(nativeToken.balanceOf(address(pool)), 100_001);
+        assertEq(pool.nativeTokenBalance(), 100_001);
+        assertEq(pool.totalSupply(), 100_000);
         assertEq(pool.balanceOf(user1), 0);
         assertEq(pool.balanceOf(user2), 0);
-        assertEq(nativeToken.balanceOf(user2), 984);
+        assertEq(nativeToken.balanceOf(user2), 1000);
     }
 
     // buy
