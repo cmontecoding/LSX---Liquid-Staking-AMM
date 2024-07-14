@@ -5,11 +5,12 @@ import {ILSXPool} from "./interfaces/ILSXPool.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {MockToken} from "../test/utils/MockToken.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {AmAmm, PoolId, Currency} from "biddog/AmAmm.sol";
 
 /// @title LSX Pool
 /// @notice Pool for Liquid Staking AMM
 /// @author andrewcmonte (andrew@definative.xyz)
-contract LSXPool is ERC20 {
+contract LSXPool is ERC20, AmAmm {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -39,7 +40,7 @@ contract LSXPool is ERC20 {
     MockToken public immutable stakedToken;
 
     /// @notice The native token in the pool
-    ERC20 public immutable nativeToken;
+    MockToken public immutable nativeToken;
 
     /// @notice The maximum amount of basis points
     uint256 public constant MAX_BASIS_POINTS = 10_000;
@@ -86,7 +87,7 @@ contract LSXPool is ERC20 {
         baseFee = _baseFee;
         dynamicLPFee = _dynamicLPFee;
         stakedToken = MockToken(_stakedToken); // just going to make it a MockERC20 for now but can change
-        nativeToken = ERC20(_nativeToken); // just going to make it an ERC20 for now but can change
+        nativeToken = MockToken(_nativeToken); // just going to make it an MockERC20 for now but can change
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -105,8 +106,7 @@ contract LSXPool is ERC20 {
         uint256 _nativeTokenBalance
     ) public view returns (uint256) {
         if (
-            (_stakedTokenBalance +
-            _bondedTokenBalance == 0) ||
+            (_stakedTokenBalance + _bondedTokenBalance == 0) ||
             _nativeTokenBalance == 0
         ) revert AmountZero();
         /// @dev return the ratio in basis points
@@ -285,5 +285,58 @@ contract LSXPool is ERC20 {
         //wip
         nativeTokenBalance = nativeToken.balanceOf(address(this));
         stakedTokenBalance = stakedToken.balanceOf(address(this));
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                                BIDDOG
+    ///////////////////////////////////////////////////////////////*/
+
+    /// @dev Returns whether the am-AMM is enabled for a given pool
+    function _amAmmEnabled(PoolId id) internal view virtual override returns (bool) {
+        return true;
+    }
+
+    /// @dev Validates a bid payload, e.g. ensure the swap fee is below a certain threshold
+    function _payloadIsValid(
+        PoolId id,
+        bytes7 payload
+    ) internal view virtual override returns (bool) {
+        return true;
+    }
+
+    /// @dev Burns bid tokens from address(this)
+    function _burnBidToken(PoolId id, uint256 amount) internal virtual override {
+        _pushBidToken(id, address(0), amount);
+    }
+
+    /// @dev Transfers bid tokens from an address that's not address(this) to address(this)
+    function _pullBidToken(
+        PoolId id,
+        address from,
+        uint256 amount
+    ) internal virtual override {
+        // _pushBidToken(id, address(this), amount);
+    }
+
+    /// @dev Transfers bid tokens from address(this) to an address that's not address(this)
+    function _pushBidToken(
+        PoolId id,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        // _transferBidToken(id, to, amount);
+    }
+
+    /// @dev Transfers accrued fees from address(this)
+    function _transferFeeToken(
+        Currency currency,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        // if (currency == Currency.NATIVE) {
+        //     nativeToken.transfer(to, amount);
+        // } else {
+        //     stakedToken.transfer(to, amount);
+        // }
     }
 }
