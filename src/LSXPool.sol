@@ -6,6 +6,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {MockToken} from "../test/utils/MockToken.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {AmAmm, PoolId, Currency} from "biddog/AmAmm.sol";
+import {IAmAmm} from "biddog/interfaces/IAmAmm.sol";
 
 /// @title LSX Pool
 /// @notice Pool for Liquid Staking AMM
@@ -151,11 +152,8 @@ contract LSXPool is ERC20, AmAmm {
     function buy(uint256 amount) public {
         if (amount == 0) revert AmountZero();
 
-        /// @dev this is the formula for buying
-        /// Astaked(1 + (F-2Fb))
-        uint256 stakedTokenTransferAmount = amount +
-            calculateDynamicFee(amount) -
-            baseFee;
+        /// @dev the LST can be discounted by the manager fee (auction)
+        uint256 stakedTokenTransferAmount = amount + getManagerFee();
 
         /// @dev if we run out of staked tokens then mint more
         if (stakedTokenBalance < stakedTokenTransferAmount) {
@@ -290,6 +288,15 @@ contract LSXPool is ERC20, AmAmm {
     /*///////////////////////////////////////////////////////////////
                                 BIDDOG
     ///////////////////////////////////////////////////////////////*/
+
+    /// @dev get the manager fee (swap fee) from the payload
+    function getManagerFee() public view returns (uint256) {
+        // temp hardcode
+        PoolId POOL_0 = PoolId.wrap(bytes32(0));
+        (IAmAmm.Bid memory topBid, ) = _updateAmAmm(POOL_0);
+        /// @dev first 3 bytes of payload are the swap fee
+        return uint24(bytes3(topBid.payload));
+    }
 
     /// @dev Returns whether the am-AMM is enabled for a given pool
     function _amAmmEnabled(PoolId id) internal view virtual override returns (bool) {
